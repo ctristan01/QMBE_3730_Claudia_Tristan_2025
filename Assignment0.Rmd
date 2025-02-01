@@ -1,0 +1,78 @@
+---
+title: "Assignment 0"
+output: pdf_document
+date: "2025-01-31"
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+getwd()
+setwd("/Users/claudiatristan/Desktop/QMBE_3730_Claudia_Tristan_2025")
+netflix_data<- read_csv("netflix_titles.csv")
+```
+
+
+```{r}
+summary(netflix_data)
+```
+
+
+
+```{r}
+glimpse(netflix_data)
+```
+we can see our data set has 8 thousand rows, including 12 columns, all of this describing the type, title, director, cast, etc of a movie
+
+```{r}
+colSums(is.na(netflix_data))
+```
+checking to look for NA's in our data set 
+
+```{r}
+netflix_data$director[is.na(netflix_data$director)] <- "none"
+netflix_data$cast[is.na(netflix_data$cast)] <- "none"
+netflix_data$country[is.na(netflix_data$country)] <- "none"
+```
+
+fill in those NA's with none values
+
+```{r}
+ggplot(netflix_data, aes(x = type, fill = type)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(title = "Distribution of Content Type on Netflix",
+       x = "Type", y = "Count")
+```
+Creating a ggplot to see which type of Netflix content is movies or tv-shows where we can see the majority of our data sets are movies, more than tv-shows made
+
+```{r}
+netflix_data %>%
+  group_by(country) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(country, -count), y = count, fill = country)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Top 10 Content-Producing Countries", x = "Country", y = "Count")
+```
+we notice our top countries with the most content being generated being the US, India, UK, Japan, South Korea, Canada, Spain, France and Mexico. I notice we still have some Na's to fill but these are our top countries making the most content for Netflix so far.
+
+```{r}
+netflix_data <- netflix_data %>%
+  filter(type == "Movie") %>%
+  mutate(duration_num = as.numeric(gsub(" min", "", duration)))
+
+ggplot(netflix_data, aes(x = duration_num)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribution of Movie Durations on Netflix",
+       x = "Duration (minutes)", y = "Count")
+```
+
+After converting Duration as numeric and only focusing on Movies I see that the majority of our movies duration are in the average of 100 minutes for most of our content.
