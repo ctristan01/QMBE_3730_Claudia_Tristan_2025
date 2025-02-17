@@ -1,0 +1,178 @@
+---
+title: "Sales"
+output: pdf_document
+date: "2025-02-15"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readr)
+library(readxl)
+library(tseries)
+library(forecast)
+library(dplyr)
+library(TTR)
+library(ggplot2)
+library(zoo)
+sales_data <- read_excel("/Users/claudiatristan/Downloads/sales.xlsx")
+```
+
+
+
+```{r cars}
+summary(sales_data)
+```
+
+
+
+```{r pressure, echo=FALSE}
+sales_data <- sales_data %>%
+  mutate(MA_3 = rollmean(Sales, k = 3, fill = NA, align = "right"))
+
+```
+
+```{r}
+sales_data %>%
+  ggplot(aes(x = Week)) +
+  geom_line(aes(y = Sales), color = "blue", size = 1) +
+  geom_line(aes(y = MA_3), color = "red", size = 1, linetype = "dashed") + 
+  theme_light() +
+  labs(title = "3-Week Moving Average of Sales",
+       y = "Sales",
+       x = "Week") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+sales_data <- sales_data %>%
+  mutate(MA_4 = rollmean(Sales, k = 4, fill = NA, align = "right"))
+```
+
+
+```{r}
+sales_data %>%
+  ggplot(aes(x = Week)) +
+  geom_line(aes(y = Sales), color = "blue", size = 1) + 
+  geom_line(aes(y = MA_4), color = "red", size = 1, linetype = "dashed") + 
+  theme_light() +
+  labs(title = "4-Week Moving Average of Sales",
+       y = "Sales",
+       x = "Week") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+sales_data <- sales_data %>%
+  mutate(MA_5 = rollmean(Sales, k = 5, fill = NA, align = "right"))
+```
+
+```{r}
+sales_data %>%
+  ggplot(aes(x = Week)) +
+  geom_line(aes(y = Sales), color = "blue", size = 1) +  
+  geom_line(aes(y = MA_5), color = "red", size = 1, linetype = "dashed") +
+  theme_light() +
+  labs(title = "5-Week Moving Average of Sales",
+       y = "Sales",
+       x = "Week") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+exp_model <- HoltWinters(sales_data$Sales, alpha = 0.5, beta = FALSE, gamma = FALSE)
+
+```
+
+```{r}
+sales_data$Exp_Smooth_0.5 <- c(NA, exp_model$fitted[,1])
+```
+
+```{r}
+ggplot(sales_data, aes(x = Week)) +
+  geom_line(aes(y = Sales), color = "blue", size = 1) +  
+  geom_line(aes(y = MA_3), color = "red", size = 1, linetype = "dashed") +
+  geom_line(aes(y = Exp_Smooth_0.5), color = "green", size = 1, linetype = "dotdash") + 
+  theme_minimal() +
+  labs(title = "3-Week Moving Average & Exponential Smoothing",
+       x = "Week", y = "Sales") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+ggplot(sales_data, aes(x = Week)) +
+  geom_line(aes(y = Sales), color = "blue", size = 1) +  
+  geom_line(aes(y = MA_4), color = "red", size = 1, linetype = "dashed") +
+  geom_line(aes(y = Exp_Smooth_0.5), color = "green", size = 1, linetype = "dotdash") + 
+  theme_minimal() +
+  labs(title = "4-Week Moving Average & Exponential Smoothing",
+       x = "Week", y = "Sales") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+ggplot(sales_data, aes(x = Week)) +
+  geom_line(aes(y = Sales), color = "blue", size = 1) +  
+  geom_line(aes(y = MA_5), color = "red", size = 1, linetype = "dashed") +
+  geom_line(aes(y = Exp_Smooth_0.5), color = "green", size = 1, linetype = "dotdash") + 
+  theme_minimal() +
+  labs(title = "5-Week Moving Average & Exponential Smoothing",
+       x = "Week", y = "Sales") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+sales_clean <- sales_data %>% filter(!is.na(MA_3) & !is.na(MA_4) & !is.na(MA_5))
+```
+
+```{r}
+mse_3 <- mean((sales_clean$Sales - sales_clean$MA_3)^2)
+mae_3 <- mean(abs(sales_clean$Sales - sales_clean$MA_3))
+mape_3 <- mean(abs((sales_clean$Sales - sales_clean$MA_3) / sales_clean$Sales)) * 100
+```
+
+```{r}
+cat("3 week MSE:", mse_3, "\nMAE:", mae_3, "\nMAPE:", mape_3, "%\n\n")
+```
+
+```{r}
+mse_4 <- mean((sales_clean$Sales - sales_clean$MA_4)^2)
+mae_4 <- mean(abs(sales_clean$Sales - sales_clean$MA_4))
+mape_4 <- mean(abs((sales_clean$Sales - sales_clean$MA_4) / sales_clean$Sales)) * 100
+```
+
+```{r}
+cat("4 week MSE:", mse_4, "\nMAE:", mae_4, "\nMAPE:", mape_4, "%\n\n")
+```
+```{r}
+mse_5 <- mean((sales_clean$Sales - sales_clean$MA_5)^2)
+mae_5 <- mean(abs(sales_clean$Sales - sales_clean$MA_5))
+mape_5 <- mean(abs((sales_clean$Sales - sales_clean$MA_5) / sales_clean$Sales)) * 100
+```
+
+```{r}
+cat("5 week MSE:", mse_5, "\nMAE:", mae_5, "\nMAPE:", mape_5, "%\n\n")
+```
+
+```{r}
+mse_function <- function(alpha) {
+  exp_model <- HoltWinters(sales_data$Sales, alpha = alpha, beta = FALSE, gamma = FALSE)
+  fitted_values <- exp_model$fitted[,1] 
+  mse <- mean((sales_data$Sales[-1] - fitted_values)^2, na.rm = TRUE)
+  return(mse)
+}
+```
+
+```{r}
+best_alpha <- optimize(mse_function, interval = c(0, 1))$minimum
+```
+
+```{r}
+cat("Best Alpha for Minimum MSE:", best_alpha, "\n")
+```
+
+
+#comments
+
+Out of all my forecasts my week 3 moving average forecast performs the best with the least amount of errors which means it is the closest to our actual data 

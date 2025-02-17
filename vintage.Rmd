@@ -1,0 +1,98 @@
+---
+title: "Time Series Assignment"
+output: pdf_document
+date: "2025-02-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(readxl)
+library(tseries)
+library(forecast)
+library(dplyr)
+library(TTR)
+vin <- read_excel("/Users/claudiatristan/Downloads/Vintage.xlsx")
+
+```
+
+
+```{r pressure, echo=FALSE}
+vin %>% ggplot() +
+  geom_line(aes(x=Month, y=Sales))
+```
+#comments
+
+There is some seasonality in a motion of going up and down, the down shows that its rising indicating that there is a linear trend 
+
+```{r}
+vin <- vin %>% mutate(season = rep(1:12, length.out = nrow(vin)))
+```
+
+```{r}
+trend <- lm(Sales ~ Month, data = vin)
+summary(trend)
+```
+
+
+```{r}
+seasons <- lm(Sales ~ Month + as.factor(season), data = vin)
+summary(seasons)
+```
+
+```{r}
+library(modelr)
+library(broom)
+library(janitor)
+
+rmse(trend, vin)
+rmse(seasons, vin)
+```
+
+```{r}
+trend_p <- augment(trend, vin) %>% mutate(model = "trend")
+seasons_p <- augment(seasons, vin) %>% mutate(model = "seasons")
+
+```
+
+```{r}
+compare <- rbind(trend_p, seasons_p)
+
+```
+
+
+```{r}
+compare %>%
+  ggplot()+
+  geom_line(aes(x=Month,y=Sales), color = "red")+
+  geom_line(aes(x=Month,y=.fitted), color = "blue")+
+  facet_wrap(~model)
+```
+
+```{R}
+forecasts <- data.frame(Month = c(37:48), season = c(1:12)) %>%
+  add_predictions(seasons)
+
+print(forecasts)
+
+```
+#comments 
+
+the sales start high on January and start declining the most during month 6, maybe summer time. the sales get back up around month 8 little by little. also similar to the other 3 years but this time with more sales starting January
+
+```{r}
+actual_jan_sales <- 295  # Given actual value in thousands
+forecast_jan_sales <- forecasts %>% filter(Month == 37) %>% pull(pred)
+```
+
+
+
+```{r}
+forecast_error <- (forecast_jan_sales - actual_jan_sales) * 1000
+print(paste("Forecast Error for January:", forecast_error))
+```
+
+#comments
+
+Our model is an accurate model closer to the years before if we wanted to get closer to our predictions and minimize the forecast error if we got more data from certain seasons promotions or if we used arima models, i also think if we had more information on the sales and wether they were offering new products or price changes.
