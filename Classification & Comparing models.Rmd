@@ -1,0 +1,200 @@
+---
+title: "Classification & Comparing models"
+output: pdf_document
+date: "2025-02-27"
+---
+
+```{r setup, include=FALSE}
+library(caret)
+library(randomForest)
+library(tidyverse)
+library(readr)
+library(dplyr)
+
+
+setwd("/Users/claudiatristan/Desktop/QMBE_3730_Claudia_Tristan_2025")
+data <- read_csv("loan_default_data_set.csv")
+```
+
+```{r}
+view(data)
+```
+
+
+```{r}
+summary(data)
+```
+```{r}
+nrow(data)
+```
+
+```{r}
+ncol(data)
+```
+
+#comments
+
+Our summary statistics show us 20000 rows and 20 columns, we have 20 variables in which 20 are predictors and 1 is the response variable, also known as Def_ind in which it is an indicator of default 1, an account was opened and approved with the bank XYZ and 0 for not default.
+
+```{r}
+colSums(is.na(data))
+```
+
+#comments
+
+I am also able to notice there are variables with NAs, one of them is our pct_card_over_50_uti, percentage of open credit cards with 50% utilization and our rep_income also known as annual income and our rep education. We also notice that one of our rows is mispelled with an extra space "num_auto_ 36_month".
+
+
+```{r}
+names(data)[names(data) == "num_auto_ 36_month"] <- "num_auto_36_month"
+```
+
+#comments 
+
+We go on about changing the name of the mispelled variable
+
+```{r }
+data_clean <- data %>% drop_na()
+
+```
+#comments
+we also use the drop_na to remove our missing values 
+
+```{r}
+colSums(is.na(data_clean))
+
+```
+#comments
+we make sure our missing values have been dropped 
+
+```{r}
+sum(duplicated(data_clean))
+```
+
+#comments
+we check for duplicares in which we find none
+
+```{r}
+sapply(data_clean, class)
+```
+#comments
+we check the category of each variables we have and I notice that rep_education is described as character and it needs to be changed as a categorical value to define the classes of rep education so we have to recognize it as a factor.
+
+```{r}
+data_clean$rep_education <- as.factor(data_clean$rep_education)
+```
+
+```{r}
+summary(data_clean)
+```
+
+#comments
+Our data has now recognized it as a factor also known as college, graduates, high school(below), and others.
+
+```{r}
+hist(data_clean$credit_age)
+```
+#comments
+I create a histogram to check the balance of credit age among people it seems like most people have been identified to have their credit card average for an around of 200-300 months. which means an average of 20 years.
+
+```{r}
+library(ggplot2)
+ggplot(data_clean, aes(x = rep_education, fill = as.factor(num_acc_30d_past_due_6_months))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Delinquent accounts by education level",
+       x = "Education level",
+       y = "Count",
+       fill = "(0 = No, 1 = Yes)") +
+  theme_minimal()
+```
+
+#comments
+I also created another plot to see which education level had the most delinquent accounts in the last 30 days in the past 62 months. After conducting this graph I notice most people who marked college education and high school were on the top 2 columns with them as yes (green) and graduate holds the least amount of yes, though these are very small columns for all 4 rows of education we can still see a difference.
+
+```{r}
+table(data_clean$rep_education)
+```
+
+#comments
+We do have underrepresented levels of education with our 'other' being the most underrepresented and graduate and high school having a big difference amount than college. we have more college amount than everything else
+
+```{r}
+table(data_clean$Def_ind)
+```
+
+#comments
+this data is imbalanced, some ways on how balance it would be oversampling by increasing the observations or duplicating data. we could also undersample to reduce the majority class, or try SMOTE, but i think we could adjust the class weights in our decision tree and knn models which might work best for this dataset or oversmaple the minority class but this would not determine accuracy since we would just predict it, our data could be imbalance due to more people with less higher education levels that we have counted for or that in general people tend to have high school, and college educations more.
+
+
+```{r}
+hist(data_clean$rep_income)
+```
+
+#comments
+The histogram looks approximately normal with a small slight right skew 
+
+```{r}
+data_clean %>%
+  group_by(rep_education) %>%
+  summarise(Default_Rate = mean(Def_ind)) %>%
+  arrange(desc(Default_Rate))
+```
+
+#comments
+High school graduates have the highest default rates, meaning the classes with least education are more likely to borrow loans compared to higher education levels. Our data has more information from high school and below education class than others.  
+
+```{r}
+set.seed(42)
+trainIndex <- createDataPartition(data_clean$Def_ind, p=0.8, list=FALSE)
+train <- data_clean[trainIndex, ]
+test <- data_clean[-trainIndex, ]
+```
+
+
+```{r}
+train$Def_ind <- as.factor(train$Def_ind)
+test$Def_ind <- as.factor(test$Def_ind)
+
+knn_model <- train(Def_ind ~ ., data=train, method='knn', tuneLength=5)
+```
+
+
+```{r}
+pred_knn <- predict(knn_model, test)
+print(confusionMatrix(pred_knn, test$Def_ind))
+```
+#comments
+the model correctly predicted 2988 true negatives, and 16 true positives. They guessed incorrectly 13 false negatives and 313 false positives. The accuracy for the knn model is 90.21%, Kappa of 0.00746 which means this is our percentage of better accuracy than random guessing, our recall for default 0 is 99% accurate while 1 default is 4.86%. As well as our precision being higher for non default rather than default. Looking also at the McNemars test our p value is low which means our model predicts the majority class as the non default class and they do not do very good at predicting actual default people.
+
+```{r}
+dt_model <- train(Def_ind ~ ., data=train, method='rpart')
+
+pred_dt <- predict(dt_model, test)
+print(confusionMatrix(pred_dt, test$Def_ind))
+```
+#comments
+
+This Decision tree model shows a slight better accuracy than our knn models but we are still seeing a lot of values being predicted higher for our true negatives than our false positives probably due to our imablanced data that we had.
+
+
+```{r}
+library(pROC)
+
+knn_pred_probs <- predict(knn_model, test, type = "prob")[, 2]
+
+roc_knn <- roc(test$Def_ind, knn_pred_probs, plot = TRUE, col = "pink", main = "ROC Curve for KNN Model", print.auc = TRUE)
+```
+
+
+
+
+```{r}
+dt_pred_probs <- predict(dt_model, test, type = "prob")[, 2]
+
+roc_dt <- roc(test$Def_ind, dt_pred_probs, plot = TRUE, col = "blue", main = "ROC Curve for Decision Tree Model", print.auc = TRUE)
+```
+
+#comments
+after seeing both scores of auc and how both models knn and decision tree perform, it is easy to say decision tree perform better, i believe our knn model does not help with this type of data set due to they perform the best with smaller and more predictive data sets while decision tree model can help us be more accurate due to our numeric and categorical variables and complex data. As we saw in our auc score it was a lot more accurate than our knn auc score that leaned more towards the left. 
+
+Seeing at the top our results for min median max, etc. Our rep income, credit usage history and utilization are the features that are best when predicting default status.
