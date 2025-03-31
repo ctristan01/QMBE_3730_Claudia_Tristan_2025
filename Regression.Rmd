@@ -1,0 +1,131 @@
+---
+title: "Regression"
+output: pdf_document
+date: "2025-03-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(car)
+library(lmtest)
+library(sandwich)
+library(dplyr)
+library(readxl)
+
+# Load data
+data <- read_excel("wages.xlsx")
+```
+
+
+
+```{r}
+# 1. Plot Wage against Age and evaluate whether a linear or quadratic model would better capture the relationship. 
+ggplot(data, aes(x = Age, y = Wage)) +
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "lm", formula = y ~ x, col = "red", se = FALSE) + 
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), col = "blue", se = FALSE) + 
+  labs(title = "Wage vs Age",
+       x = "Age",
+       y = "Wage") +
+  theme_minimal()
+
+```
+
+## A quadratic model would better capture the relationship since the points are going in a downward U-shape and not in a linear shape
+
+
+```{r}
+#Estimate a multiple regression model of Wage using Age and Education as independent (X) variables; assume a standard linear relationship between Wage and Age.
+linear_model <- lm(Wage ~ Age + Educ, data = data)
+
+# Summary of the model
+summary(linear_model)
+```
+
+#we get a R-squared of 0.6088 and the most significant variable being education more than age, and age being impacted by education years the most
+
+```{r}
+#Estimate another multiple regression model of Wage using Age and Education as independent (X) variables; this time fit Age using a quadratic relationship. Verify your choice from part a. by comparing the distribution of residuals and the goodness of fit between the models in parts b and c.
+
+quad_model <- lm(Wage ~ Age + I(Age^2) + Educ, data = data)
+summary(quad_model)
+```
+
+#we can see that now with age having a quadratic relationship, the R-squared value went up in accuracy.
+
+```{r}
+#Use the appropriate model to predict hourly wages for someone with 16 years of education and age equal 30, 50, or 70.
+
+new_data <- data.frame(Age = c(30, 50, 70), Educ = rep(16, 3))
+
+predicted_wages <- predict(quad_model, newdata = new_data)
+predicted_wages
+```
+
+#someone with 50 years of age will obtain the highest wages 
+
+```{r}
+#residuals and fitted values with our models
+plot(fitted(linear_model), residuals(linear_model), 
+     main="Residuals vs Fitted",
+     xlab="Fitted values", ylab="Residuals")
+abline(h=0, col="red")
+
+plot(fitted(quad_model), residuals(quad_model), 
+     main="Residuals vs Fitted",
+     xlab="Fitted values", ylab="Residuals")
+abline(h=0, col="red")
+```
+
+#after plotting residuals and fitted values we can confirm the quadratic model has more points closer to the line than on the outside like the linear model
+
+```{r}
+#Plot Rent against each of the three predictor variables and evaluate whether the relationship is best captured by a line or a curve. Identify variables that may benefit from a log-transformation 
+
+data <- read_excel("AnnArbor.xlsx")
+
+ggplot(data, aes(x = Beds, y = Rent)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggtitle("Rent vs. Bedrooms")
+
+ggplot(data, aes(x = Baths, y = Rent)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggtitle("Rent vs. Bathrooms")
+```
+
+#both bedrooms and bathrooms both are going up and appear somewhat linear but with different jumps but bathrooms have a more nonlinear trends
+
+```{r}
+ggplot(data, aes(x = Sqft, y = Rent)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggtitle("Rent vs. Square Footage")
+```
+
+#for the square feet it looks like it may a log transformation since it does have a curved pattern
+```{r}
+data$Log_Sqft <- log(data$Sqft)
+
+
+model <- lm(Rent ~ Beds + Baths + Log_Sqft, data = data)
+
+# Display model summary
+summary(model)
+```
+
+#model has an r-squared of 0.8355 degrees meaning its a good fit and our t statistic showing it is statistically significant with most square feet being the most significant and beds too
+
+```{r}
+new_data <- data.frame(Beds = 3, Baths = 2, Log_Sqft = log(1600))
+
+# Predict rent
+predicted_rent <- predict(model, newdata = new_data)
+
+# Print predicted rent
+print(predicted_rent)
+```
+
+#the predicted rent is 1540.384 for a 3 beds 2 baths and 1600 squared feet
